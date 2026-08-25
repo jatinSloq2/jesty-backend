@@ -24,12 +24,22 @@ export function verifyForwardSecret(req: Request, _res: Response, next: NextFunc
   next();
 }
 
-// POST /api/webhook -> forwarded Meta payload from your other service lands here.
-// Body shape is expected to be the SAME as Meta's raw webhook body (entry[].changes[].value...).
-// If your service wraps/reshapes it before forwarding, adjust the `entries` line below.
+// POST /api/webhook -> forwarded event from your other service lands here.
+// Two shapes arrive on this same endpoint:
+//   1. The raw Meta webhook body (entry[].changes[].value...) — INBOUND
+//      customer messages/statuses, forwarded byte-for-byte.
+//   2. { event: "whatsapp_outbound_message", ... } — a message THAT SERVICE
+//      sent out over the Cloud API (an AI/bot reply, an agent reply during
+//      handover, a system notice). Meta never echoes these back to us, so
+//      without this branch Jesty would only ever see the customer's half of
+//      the conversation. See handleOutboundMessage below.
 export const receiveWebhook = catchAsync(async (req: Request, res: Response) => {
   // Always 200 fast — your other service will retry on non-200.
   res.sendStatus(200);
+
+  if (req.body?.event === "whatsapp_outbound_message") {
+    return handleOutboundMessage(req.body);
+  }
 
   const entries = req.body?.entry || [];
   for (const entry of entries) {
@@ -52,6 +62,73 @@ export const receiveWebhook = catchAsync(async (req: Request, res: Response) => 
     }
   }
 });
+
+// Handles a message the OTHER backend sent out on our behalf (AI reply,
+// agent reply relayed through handover, or an automated system notice).
+// Mirrors handleIncomingMessage's contact/conversation upsert, but:
+//   - direction is "outbound", and the message content comes from the
+//     forwarded event fields instead of a Meta `messages[]` entry.
+//   - lastCustomerMessageAt is deliberately left untouched — that field
+//     drives the 24h customer-service window and must only move on a real
+//     inbound customer message, never on something we sent.
+//   - unreadCount is deliberately left untouched — outbound messages were
+//     already "seen" by definition (we're the ones who sent them).
+//   - idempotent on waMessageId: the forwarding call on the other side is
+//     fire-and-forget/best-effort and may retry, so a repeat with the same
+//     wamid is a no-op rather than a duplicate row.
+async function handleOutboundMessage(event: any) {
+  const { phoneNumberId, waId, waMessageId, type, text, caption, mediaUrl, mediaMimeType, sentBy, status, errorMessage } =
+    event || {};
+
+  if (!phoneNumberId || !waId) return; // not enough to file this anywhere
+
+  if (waMessageId) {
+    const existing = await Message.findOne({ waMessageId });
+    if (existing) return; // already recorded (e.g. a retried forward)
+  }
+
+  let contact = await Contact.findOne({ waId });
+  if (!contact) {
+    contact = await Contact.create({ waId, name: waId, phoneNumber: waId });
+  }
+
+  let conversation = await Conversation.findOne({ waId, phoneNumberId });
+  if (!conversation) {
+    conversation = await Conversation.create({
+      contact: contact._id,
+      waId,
+      phoneNumberId,
+      status: "open",
+    });
+  }
+
+  const resolvedType: MessageType = (type as MessageType) || "text";
+  const preview = text || caption || (mediaUrl ? `[${resolvedType}]` : "[message]");
+
+  const message = await Message.create({
+    conversation: conversation._id,
+    waMessageId: waMessageId || undefined,
+    direction: "outbound",
+    type: resolvedType,
+    text,
+    mediaUrl,
+    mediaMimeType,
+    caption,
+    status: status === "failed" ? "failed" : "sent",
+    sentBy: sentBy || undefined,
+    errorMessage: status === "failed" ? errorMessage || "Failed to send" : undefined,
+    raw: event,
+  });
+
+  await Conversation.findByIdAndUpdate(conversation._id, {
+    $set: {
+      lastMessagePreview: preview,
+      lastMessageAt: new Date(),
+    },
+  });
+
+  emitNewMessage(conversation._id.toString(), message);
+}
 
 async function handleIncomingMessage(phoneNumberId: string, value: any, msg: any) {
   // Reactions land in the same `messages[]` array as regular messages, but they
