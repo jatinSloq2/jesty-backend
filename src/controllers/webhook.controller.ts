@@ -77,8 +77,21 @@ export const receiveWebhook = catchAsync(async (req: Request, res: Response) => 
 //     fire-and-forget/best-effort and may retry, so a repeat with the same
 //     wamid is a no-op rather than a duplicate row.
 async function handleOutboundMessage(event: any) {
-  const { phoneNumberId, waId, waMessageId, type, text, caption, mediaUrl, mediaMimeType, sentBy, status, errorMessage } =
-    event || {};
+  const {
+    phoneNumberId,
+    waId,
+    waMessageId,
+    type,
+    text,
+    caption,
+    mediaUrl,
+    mediaMimeType,
+    sentBy,
+    senderType,
+    senderName,
+    status,
+    errorMessage,
+  } = event || {};
 
   if (!phoneNumberId || !waId) return; // not enough to file this anywhere
 
@@ -116,6 +129,11 @@ async function handleOutboundMessage(event: any) {
     caption,
     status: status === "failed" ? "failed" : "sent",
     sentBy: sentBy || undefined,
+    // "bot" | "agent" | undefined — undefined shows no badge at all, which
+    // only happens if the other backend ever forwards an event without
+    // telling us who sent it.
+    senderType: senderType === "bot" || senderType === "agent" ? senderType : undefined,
+    senderName: senderName || undefined,
     errorMessage: status === "failed" ? errorMessage || "Failed to send" : undefined,
     raw: event,
   });
