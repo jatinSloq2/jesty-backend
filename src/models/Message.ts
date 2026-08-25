@@ -34,10 +34,19 @@ export interface IMessage extends Document {
   caption?: string;
   templateName?: string;
   status: MessageStatus;
-  // The auth-service id of the agent who sent the message (outbound only).
-  // Source of truth for the user lives in the auth service; we just record
-  // the id here so the timeline can show "sent by X" without a join.
+  // The auth-service id of the agent who sent the message (outbound only),
+  // or the bot's id for an AI-sent reply. Source of truth for the user
+  // lives in the auth service; we just record the id here so the timeline
+  // can show "sent by X" without a join.
   sentBy?: string;
+  // "bot" | "agent" — lets the UI show a "Bot"/"Agent" badge next to an
+  // outbound message. Left unset for a message sent directly through
+  // Jesty's own inbox (sendFromJesty) — those show no badge at all, since
+  // that's just an agent using Jesty normally, not a forwarded event.
+  senderType?: "bot" | "agent";
+  // Display name to go with senderType — the bot's own name, or the
+  // sending agent's name.
+  senderName?: string;
 
   // Reply / quote support: this message is a reply to another message.
   repliedToMessage?: Types.ObjectId; // local Message _id, when resolvable
@@ -83,6 +92,8 @@ const MessageSchema = new Schema<IMessage>(
     templateName: { type: String },
     status: { type: String, enum: ["sent", "delivered", "read", "failed", "pending"], default: "pending" },
     sentBy: { type: String, index: true },
+    senderType: { type: String, enum: ["bot", "agent"], default: undefined },
+    senderName: { type: String },
 
     repliedToMessage: { type: Schema.Types.ObjectId, ref: "Message" },
     repliedToWaMessageId: { type: String },
