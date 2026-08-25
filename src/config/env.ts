@@ -46,6 +46,18 @@ export const env = {
   JWT_ACCESS_EXPIRES_IN: required("JWT_ACCESS_EXPIRES_IN", "15m"),
   JWT_REFRESH_EXPIRES_IN: required("JWT_REFRESH_EXPIRES_IN", "30d"),
 
+  // ---- Inbox SSO (handoff from the other backend's "Open inbox" button) ----
+  // The other backend mints a short-lived (2m) signed token — see that repo's
+  // services/inboxSso.service.js — and redirects the browser to
+  // FRONTEND_URL/sso/callback?token=... . POST /api/auth/sso verifies it
+  // with this SAME secret and logs the matching user (by `sub`, the shared
+  // Users._id) into Jesty exactly like a normal login. Must be identical on
+  // both sides; a leak of this secret doesn't expose JWT_ACCESS_SECRET or
+  // vice versa.
+  INBOX_SSO_SECRET: required("INBOX_SSO_SECRET", ""),
+  INBOX_SSO_AUDIENCE: required("INBOX_SSO_AUDIENCE", "jestbot-inbox"),
+  INBOX_SSO_ISSUER: required("INBOX_SSO_ISSUER", "jestbot-backend"),
+
   // AES-256-GCM key used to encrypt/decrypt secret fields on the Integration
   // model (access tokens, API keys, etc — see utils/crypto.ts). Use the SAME
   // value your other service uses so both can read each other's Integration

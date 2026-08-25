@@ -82,6 +82,57 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   );
 });
 
+const ssoLoginSchema = z.object({
+  token: z.string().min(1, "token is required"),
+});
+
+// POST /api/auth/sso
+// Body: { token } — the short-lived SSO handoff token from
+// FRONTEND_URL/sso/callback?token=..., minted by the other backend's
+// "Open inbox" button (see services/auth.service.ts#loginWithSsoToken for
+// verification details). Response shape mirrors POST /auth/login exactly.
+export const ssoLogin = catchAsync(async (req: Request, res: Response) => {
+  const { token } = ssoLoginSchema.parse(req.body);
+  const result = await authService.loginWithSsoToken(token);
+
+  const session = await UserSession.findOneAndUpdate(
+    { externalUserId: result.user.id },
+    {
+      $set: {
+        externalUserId: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role,
+        avatarUrl: result.user.avatar || undefined,
+        assignedPhoneNumberIds: result.user.assignedPhoneNumberIds,
+        isActive: true,
+        lastSeenAt: new Date(),
+      },
+    },
+    { upsert: true, new: true }
+  );
+
+  setAuthCookies(res, result.accessToken, result.refreshToken);
+
+  return ok(
+    res,
+    {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresIn: result.expiresIn,
+      user: {
+        id: session.externalUserId,
+        name: session.name,
+        email: session.email,
+        role: session.role,
+        avatarUrl: session.avatarUrl,
+        assignedPhoneNumberIds: session.assignedPhoneNumberIds,
+      },
+    },
+    "Logged in"
+  );
+});
+
 // POST /api/auth/refresh
 // Body: { refreshToken? }  -- falls back to the refresh_token cookie if omitted.
 export const refresh = catchAsync(async (req: Request, res: Response) => {

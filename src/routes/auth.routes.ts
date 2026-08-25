@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login, refresh, me, logout } from "../controllers/auth.controller";
+import { login, refresh, me, logout, ssoLogin } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -30,6 +30,29 @@ const router = Router();
  *       401: { description: Invalid email or password }
  */
 router.post("/login", login);
+
+/**
+ * @openapi
+ * /auth/sso:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Log in via the short-lived SSO handoff token from FRONTEND_URL/sso/callback?token=... (the other backend's "Open inbox" button)
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token: { type: string }
+ *     responses:
+ *       200:
+ *         description: Logged in — same response shape as /auth/login
+ *       401: { description: Invalid, expired, or unrecognized SSO token }
+ */
+router.post("/sso", ssoLogin);
 
 /**
  * @openapi

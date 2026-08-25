@@ -126,3 +126,70 @@ export async function logout(userId?: string): Promise<void> {
   if (!userId) return;
   await User.findByIdAndUpdate(userId, { $unset: { refreshTokenHash: 1 } });
 }
+
+// ---------------------------------------------------------------------------
+// Inbox SSO handoff (the other backend's "Open inbox" button)
+//
+// The other backend mints a short-lived, signed token (see that repo's
+// services/inboxSso.service.js) and redirects the browser to
+// FRONTEND_URL/sso/callback?token=... . That page immediately posts the
+// token to POST /api/auth/sso, which lands here. `sub` is that user's _id on
+// the SAME Users collection Jesty already reads via AUTH_MONGO_URI, so no
+// new account is created — the user must already exist there.
+// ---------------------------------------------------------------------------
+
+interface InboxSsoTokenPayload {
+  sub: string;
+  email?: string;
+  name?: string;
+  whatsapp?: {
+    credentialId?: string;
+    phoneNumberId?: string;
+    wabaId?: string;
+    phoneNumber?: string;
+  };
+}
+
+export async function loginWithSsoToken(ssoToken: string): Promise<LoginResult> {
+  if (!env.INBOX_SSO_SECRET) {
+    throw new ApiError(500, "INBOX_SSO_SECRET is not configured — Inbox SSO login is not available");
+  }
+
+  let payload: InboxSsoTokenPayload;
+  try {
+    payload = jwt.verify(ssoToken, env.INBOX_SSO_SECRET, {
+      audience: env.INBOX_SSO_AUDIENCE,
+      issuer: env.INBOX_SSO_ISSUER,
+    }) as InboxSsoTokenPayload;
+  } catch {
+    throw new ApiError(401, "Invalid or expired SSO token");
+  }
+
+  if (!payload.sub) throw new ApiError(401, "Invalid SSO token");
+
+  const user = await User.findById(payload.sub);
+  if (!user) throw new ApiError(401, "No matching account found for this SSO token");
+
+  const accessToken = signAccessToken(user);
+  const refreshToken = signRefreshToken(user);
+
+  user.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+  user.lastLoginAt = new Date();
+  await user.save();
+
+  const assignedPhoneNumberIds = await getAssignedPhoneNumberIds(user._id.toString());
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: parseDurationToSeconds(env.JWT_ACCESS_EXPIRES_IN),
+    user: {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      assignedPhoneNumberIds,
+    },
+  };
+}
