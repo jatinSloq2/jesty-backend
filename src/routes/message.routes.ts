@@ -1,14 +1,14 @@
 import { Router } from "express";
 import multer from "multer";
 import {
-  searchMessages,
   forwardMessage,
   reactToMessage,
   removeReaction,
-  sendMessage,
+  searchMessages,
   sendMediaUpload,
+  sendMessage,
 } from "../controllers/message.controller";
-import { requireAuth, requireServiceToken } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 router.use(requireAuth);
@@ -84,7 +84,7 @@ router.post("/", sendMessage);
  *               file: { type: string, format: binary }
  *     responses: { 201: { description: Message sent } }
  */
-router.post("/upload", requireServiceToken, upload.single("file"), sendMediaUpload);
+router.post("/upload", upload.single("file"), sendMediaUpload);
 
 /**
  * @openapi

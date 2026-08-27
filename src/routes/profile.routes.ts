@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { getProfile, updateProfile, updateProfilePicture } from "../controllers/profile.controller";
-import { requireAuth, requireServiceToken } from "../middleware/auth";
+import { requireAuth } from "../middleware/auth";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const router = Router();
@@ -45,6 +45,6 @@ router.patch("/", updateProfile);
  *               phoneNumberId: { type: string, description: "Defaults to the caller's default connected WhatsApp number" }
  *     responses: { 200: { description: Updated } }
  */
-router.post("/picture", requireServiceToken, upload.single("file"), updateProfilePicture);
+router.post("/picture", upload.single("file"), updateProfilePicture);
 
 export default router;
