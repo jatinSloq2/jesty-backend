@@ -10,18 +10,25 @@ import { env } from "../config/env";
 const REFRESH_COOKIE = "refresh_token";
 const ACCESS_COOKIE = "access_token";
 
+// SameSite=None requires Secure to be set at all — browsers reject the
+// cookie outright otherwise. Lax is fine (and preferable — better CSRF
+// posture) when frontend/backend share a registrable domain; flip
+// COOKIE_CROSS_SITE=true in env when they don't (see config/env.ts).
+const cookieSameSite = env.COOKIE_CROSS_SITE ? "none" : "lax";
+const cookieSecure = env.COOKIE_CROSS_SITE ? true : env.NODE_ENV === "production";
+
 function setAuthCookies(res: Response, accessToken: string, refreshToken?: string) {
   res.cookie(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
     maxAge: 15 * 60 * 1000,
   });
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE, refreshToken, {
       httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: cookieSecure,
+      sameSite: cookieSameSite,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
   }
@@ -172,7 +179,10 @@ export const logout = catchAsync(async (req: Request, res: Response) => {
   // Drop our local mirror for this user — they'll re-create it on next login.
   await UserSession.deleteOne({ externalUserId: req.user!.id });
 
-  res.clearCookie(ACCESS_COOKIE);
-  res.clearCookie(REFRESH_COOKIE);
+  // clearCookie must be called with the same sameSite/secure attributes the
+  // cookie was originally set with, or the browser treats it as a different
+  // cookie and silently keeps the old one around.
+  res.clearCookie(ACCESS_COOKIE, { httpOnly: true, secure: cookieSecure, sameSite: cookieSameSite });
+  res.clearCookie(REFRESH_COOKIE, { httpOnly: true, secure: cookieSecure, sameSite: cookieSameSite });
   return ok(res, null, "Logged out");
 });

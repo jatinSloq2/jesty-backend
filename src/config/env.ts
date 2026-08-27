@@ -16,6 +16,16 @@ export const env = {
   NODE_ENV: required("NODE_ENV", "development"),
   FRONTEND_URL: required("FRONTEND_URL", "http://localhost:3000"),
 
+  // Set to "true" when the frontend and backend live on different
+  // registrable domains (e.g. app.vercel.app calling api.railway.app) —
+  // NOT needed for different ports on localhost or different subdomains of
+  // the same domain, both of which are already "same-site" as far as
+  // cookies are concerned. When true, auth cookies are issued with
+  // SameSite=None (required for the browser to send them on a cross-site
+  // fetch/XHR at all) and Secure is forced on, since browsers reject
+  // SameSite=None without Secure. See controllers/auth.controller.ts.
+  COOKIE_CROSS_SITE: required("COOKIE_CROSS_SITE", "false") === "true",
+
   // ---- Primary MongoDB connection ----
   // Jesty's own operational data: Contact, Conversation, Message, Group, Tag,
   // Attribute, DeviceToken, UserSession (local login mirror). See config/db.ts.
