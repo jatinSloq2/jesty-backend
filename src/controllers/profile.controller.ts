@@ -11,6 +11,23 @@ import {
 } from "../services/whatsapp.service";
 import { getWhatsappCredentialsByPhoneNumberId, getDefaultWhatsappCredentials } from "../services/integration.service";
 
+// add near the top of the file, or in a shared constants file
+export const BUSINESS_VERTICALS = [
+  "ALCOHOL",
+  "GOVT",
+  "HOTEL",
+  "HEALTH",
+  "OTC_DRUGS",
+  "NONPROFIT",
+  "PROF_SERVICES",
+  "RETAIL",
+  "TRAVEL",
+  "RESTAURANT",
+  "OTHER",
+] as const;
+
+export type BusinessVertical = (typeof BUSINESS_VERTICALS)[number];
+
 // GET /api/profile?phoneNumberId=...
 // Reads the WhatsApp Business profile straight from Meta's Cloud API.
 // `phoneNumberId` defaults to the caller's default connected WhatsApp
@@ -32,7 +49,7 @@ const updateSchema = z.object({
   description: z.string().max(512).optional(),
   email: z.string().email().optional(),
   websites: z.array(z.string().url()).max(2).optional(),
-  vertical: z.string().optional(),
+  vertical: z.enum(BUSINESS_VERTICALS).optional(),
 });
 
 // PATCH /api/profile
