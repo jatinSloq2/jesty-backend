@@ -14,7 +14,7 @@ const ACCESS_COOKIE = "access_token";
 // cookie outright otherwise. Lax is fine (and preferable — better CSRF
 // posture) when frontend/backend share a registrable domain; flip
 // COOKIE_CROSS_SITE=true in env when they don't (see config/env.ts).
-const cookieSameSite = env.COOKIE_CROSS_SITE ? "none" : "lax";
+const cookieSameSite = "none";
 const cookieSecure = env.COOKIE_CROSS_SITE ? true : env.NODE_ENV === "production";
 
 function setAuthCookies(res: Response, accessToken: string, refreshToken?: string) {
