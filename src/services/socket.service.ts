@@ -7,7 +7,7 @@ let io: Server | null = null;
 
 export function initSocket(httpServer: HttpServer) {
   io = new Server(httpServer, {
-    cors: { origin: env.FRONTEND_URL, credentials: true },
+    cors: { origin: env.FRONTEND_ORIGINS, credentials: true },
   });
 
   // Same access token issued by the auth service on login — verified the

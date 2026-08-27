@@ -14,17 +14,38 @@ function required(key: string, fallback?: string): string {
 export const env = {
   PORT: parseInt(required("PORT", "5000"), 10),
   NODE_ENV: required("NODE_ENV", "development"),
+  // Comma-separated list is supported (e.g. your production domain PLUS a
+  // Vercel preview URL) — see FRONTEND_ORIGINS below, used by CORS.
   FRONTEND_URL: required("FRONTEND_URL", "http://localhost:3000"),
 
   // Set to "true" when the frontend and backend live on different
-  // registrable domains (e.g. app.vercel.app calling api.railway.app) —
-  // NOT needed for different ports on localhost or different subdomains of
-  // the same domain, both of which are already "same-site" as far as
-  // cookies are concerned. When true, auth cookies are issued with
-  // SameSite=None (required for the browser to send them on a cross-site
-  // fetch/XHR at all) and Secure is forced on, since browsers reject
-  // SameSite=None without Secure. See controllers/auth.controller.ts.
-  COOKIE_CROSS_SITE: required("COOKIE_CROSS_SITE", "false") === "true",
+  // registrable domains — e.g. a Vercel-hosted frontend calling a
+  // Render/Railway-hosted backend, which is NOT "same-site" even though it
+  // feels like one deployment. (Different PORTS on localhost, or different
+  // subdomains of the SAME domain, already count as same-site and don't
+  // need this.) When true, auth cookies are issued with SameSite=None
+  // (required for the browser to send them on a cross-site fetch/XHR at
+  // all) and Secure is forced on, since browsers reject SameSite=None
+  // without Secure. See controllers/auth.controller.ts.
+  //
+  // Defaults to true whenever NODE_ENV=production and nothing else was
+  // specified, since a split frontend/backend host (Vercel + Render being
+  // the most common pairing) is the norm for a deployed app, not the
+  // exception — you only need to set COOKIE_CROSS_SITE explicitly to
+  // override this default (e.g. force it to "false" for a same-domain
+  // production deploy, or "true" to test cross-site behavior locally).
+  COOKIE_CROSS_SITE: process.env.COOKIE_CROSS_SITE
+    ? process.env.COOKIE_CROSS_SITE === "true"
+    : required("NODE_ENV", "development") === "production",
+
+  // FRONTEND_URL parsed into a plain array, trimmed, empty entries dropped —
+  // lets app.ts's CORS origin check accept several allowed frontends (your
+  // production domain and a Vercel preview URL, for instance) from one env
+  // var instead of only ever matching a single exact string.
+  FRONTEND_ORIGINS: required("FRONTEND_URL", "http://localhost:3000")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 
   // ---- Primary MongoDB connection ----
   // Jesty's own operational data: Contact, Conversation, Message, Group, Tag,

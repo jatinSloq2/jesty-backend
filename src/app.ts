@@ -15,7 +15,19 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    // A function (not the plain string this used to be) so more than one
+    // allowed origin works — e.g. your production Vercel domain PLUS a
+    // Vercel preview URL, both set via a comma-separated FRONTEND_URL (see
+    // FRONTEND_ORIGINS in config/env.ts). Requests with no Origin header at
+    // all (server-to-server calls, curl, Postman) are allowed through since
+    // there's no browser cookie/CORS risk in that case.
+    origin: (origin, callback) => {
+      if (!origin || env.FRONTEND_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
   })
 );
