@@ -10,11 +10,13 @@ import webhookRoutes from "./webhook.routes";
 import profileRoutes from "./profile.routes";
 import notificationRoutes from "./notification.routes";
 import integrationRoutes from "./integration.routes";
+import templateRoutes from "./template.routes";
 
 const router = Router();
 
 router.use("/auth", authRoutes);
 router.use("/integrations", integrationRoutes);
+router.use("/templates", templateRoutes);
 router.use("/contacts", contactRoutes);
 router.use("/tags", tagRoutes);
 router.use("/groups", groupRoutes);

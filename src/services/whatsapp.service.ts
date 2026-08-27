@@ -216,6 +216,45 @@ export async function uploadMedia({
   return data.id as string;
 }
 
+// Template media is different from message media. Meta's Message Templates
+// API expects an upload *handle* (for example `4::...`), obtained through the
+// Graph resumable-upload API, not a WhatsApp /media id.
+export async function uploadTemplateMedia({
+  appId,
+  fileBuffer,
+  mimeType,
+  accessToken,
+}: {
+  appId: string;
+  fileBuffer: Buffer;
+  mimeType: string;
+  accessToken: string;
+}): Promise<string> {
+  const { data: session } = await client(accessToken).post(`/${appId}/uploads`, null, {
+    params: { file_length: fileBuffer.length, file_type: mimeType },
+  });
+  if (!session?.id) throw new Error("Meta did not create a template-media upload session");
+
+  const { data } = await client(accessToken, {
+    "file_offset": "0",
+    "Content-Type": "application/octet-stream",
+  }).post(`/${session.id}`, fileBuffer, { maxBodyLength: Infinity, maxContentLength: Infinity });
+  if (!data?.h) throw new Error("Meta did not return a template-media header handle");
+  return data.h as string;
+}
+
+export async function createMessageTemplate(wabaId: string, payload: Record<string, unknown>, accessToken: string) {
+  const { data } = await client(accessToken).post(`/${wabaId}/message_templates`, payload);
+  return data;
+}
+
+export async function listMessageTemplates(wabaId: string, accessToken: string) {
+  const { data } = await client(accessToken).get(`/${wabaId}/message_templates`, {
+    params: { fields: "id,name,language,status,category,components,quality_score,rejected_reason" },
+  });
+  return data?.data ?? [];
+}
+
 // ---- WhatsApp Business Profile ----
 // These talk to Meta's Cloud API directly (v25). Jesty does NOT cache the
 // profile — every call goes to Meta so the source of truth is always fresh.
