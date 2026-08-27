@@ -39,9 +39,6 @@ export const env = {
   WHATSAPP_ACCESS_TOKEN: required("WHATSAPP_ACCESS_TOKEN", ""),
   WHATSAPP_WINDOW_HOURS: parseInt(required("WHATSAPP_WINDOW_HOURS", "24"), 10),
 
-  // Optional. Used only by the Templates workspace's AI drafting action.
-  OPENAI_API_KEY: required("OPENAI_API_KEY", ""),
-  OPENAI_TEMPLATE_MODEL: required("OPENAI_TEMPLATE_MODEL", "gpt-4.1-mini"),
 
   // ---- Auth (owned locally now — email + password against the Users model
   // on the second/shared Mongo connection) ----
