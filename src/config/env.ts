@@ -38,11 +38,14 @@ export const env = {
     ? process.env.COOKIE_CROSS_SITE === "true"
     : required("NODE_ENV", "development") === "production",
 
-  // FRONTEND_URL parsed into a plain array, trimmed, empty entries dropped —
-  // lets app.ts's CORS origin check accept several allowed frontends (your
-  // production domain and a Vercel preview URL, for instance) from one env
-  // var instead of only ever matching a single exact string.
-  FRONTEND_ORIGINS: required("FRONTEND_URL", "http://localhost:3000")
+  // The CORS allowlist used by app.ts. Set explicitly via FRONTEND_ORIGINS
+  // (comma-separated) when you want the allowlist to differ from
+  // FRONTEND_URL — e.g. adding a dev-only origin like the Expo/Metro dev
+  // server (http://localhost:8081) or a mobile app's tunnel URL without
+  // touching FRONTEND_URL itself. Falls back to FRONTEND_URL (split on
+  // commas) when FRONTEND_ORIGINS isn't set, so existing setups that only
+  // ever configured FRONTEND_URL keep working unchanged.
+  FRONTEND_ORIGINS: required("FRONTEND_ORIGINS", required("FRONTEND_URL", "http://localhost:3000"))
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
