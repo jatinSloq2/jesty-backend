@@ -19,10 +19,19 @@ app.use(
     // allowed origin works — e.g. your production Vercel domain PLUS a
     // Vercel preview URL, both set via a comma-separated FRONTEND_URL (see
     // FRONTEND_ORIGINS in config/env.ts). Requests with no Origin header at
-    // all (server-to-server calls, curl, Postman) are allowed through since
-    // there's no browser cookie/CORS risk in that case.
+    // all (server-to-server calls, curl, Postman, and — importantly — the
+    // React Native mobile app's normal networking stack) are allowed
+    // through since there's no browser cookie/CORS risk in that case.
+    //
+    // Below that: outside production, allow ANY origin. This only matters
+    // in dev/staging, where Expo's tooling (Metro, the tunnel/ngrok relay,
+    // the in-app JS debugger) sometimes attaches an Origin header that
+    // will never match FRONTEND_ORIGINS (e.g. http://localhost:8081 or a
+    // *.exp.direct tunnel URL) — none of that exists in production, and
+    // the mobile app authenticates with a Bearer token, not a cookie, so
+    // there's nothing for a hostile origin to steal here either way.
     origin: (origin, callback) => {
-      if (!origin || env.FRONTEND_ORIGINS.includes(origin)) {
+      if (!origin || env.FRONTEND_ORIGINS.includes(origin) || env.NODE_ENV !== "production") {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
